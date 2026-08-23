@@ -107,15 +107,14 @@ docker compose down -v     # arrête et supprime les volumes (repart de zéro)
 
 ### Backend
 
-Le profil `dev` est activé par défaut. Il requiert une **instance PostgreSQL locale** configurée dans `backend/src/main/resources/application-dev.yml` (fichier gitignore — à créer manuellement) :
+Le profil `dev` est activé par défaut. Il requiert une **instance PostgreSQL locale**.
 
-```yaml
-# backend/src/main/resources/application-dev.yml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/riskboard
-    username: postgres
-    password: postgres
+Copier le template fourni et renseigner les credentials :
+
+```bash
+cp backend/src/main/resources/application-dev.yml.example \
+   backend/src/main/resources/application-dev.yml
+# puis éditer application-dev.yml avec vos valeurs
 ```
 
 > PostgreSQL local disponible via Docker : `docker run -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine`
