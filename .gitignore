@@ -1,0 +1,28 @@
+# Outils locaux
+.claude/
+CLAUDE.md
+
+# Système
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+
+# Variables d'environnement
+.env
+.env.*
+!.env.example
+
+# Maven
+backend/target/
+
+# Node / Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
