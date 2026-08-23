@@ -41,7 +41,7 @@ RiskBoard permet de consulter en temps réel l'exposition aux risques (crédit, 
 | Contexte | Outils requis |
 |---|---|
 | Lancement Docker | [Docker Desktop](https://www.docker.com/products/docker-desktop/) ≥ 24 |
-| Développement backend | Java 21 (OpenJDK ou Eclipse Temurin) · Maven 3.9+ |
+| Développement backend | Java 21 · Maven 3.9+ |
 | Développement frontend | Node.js 24+ · npm 10+ |
 
 ---
@@ -73,13 +73,13 @@ docker compose up --build
 
 ### 4. Accéder à l'application
 
-| Service       | Adresse                                         | Remarque                        |
-|---------------|-------------------------------------------------|---------------------------------|
-| Frontend      | http://localhost:4201                           | Interface utilisateur Angular   |
-| Backend       | http://localhost:8081                           | API REST                        |
-| Swagger UI    | http://localhost:8081/swagger-ui.html           | Documentation interactive       |
-| Spec OpenAPI  | http://localhost:8081/v3/api-docs               | JSON OpenAPI 3.1                |
-| PostgreSQL    | `localhost:5433`                                | Identifiants définis dans `.env` |
+| Service      | Adresse                                       | Remarque                      |
+|--------------|-----------------------------------------------|-------------------------------|
+| Frontend     | http://localhost:4201                         | Interface utilisateur Angular |
+| Backend      | http://localhost:8081                         | API REST                      |
+| Swagger UI   | http://localhost:8081/swagger-ui.html         | Documentation interactive     |
+| Spec OpenAPI | http://localhost:8081/v3/api-docs             | JSON OpenAPI 3.1              |
+| PostgreSQL   | `localhost:5433`                              | Identifiants définis dans `.env` |
 
 > **Architecture réseau Docker**
 > Le frontend ne contacte pas le backend directement.
@@ -101,7 +101,7 @@ docker compose down -v     # arrête et supprime les volumes (repart de zéro)
 
 | Profil | Activé quand | Base de données |
 |--------|-------------|-----------------|
-| `dev` | Défaut local (aucun réglage) | PostgreSQL locale via `application-dev.yml` |
+| `dev`  | Défaut local (aucun réglage) | PostgreSQL locale via `application-dev.yml` |
 | `test` | `mvn test` automatiquement | H2 in-memory |
 | `prod` | `SPRING_PROFILES_ACTIVE=prod` (Docker) | PostgreSQL via variables d'environnement |
 
@@ -109,7 +109,7 @@ docker compose down -v     # arrête et supprime les volumes (repart de zéro)
 
 Le profil `dev` est activé par défaut. Il requiert une **instance PostgreSQL locale**.
 
-Copier le template fourni et renseigner les credentials :
+Copier le template et renseigner les credentials :
 
 ```bash
 cp backend/src/main/resources/application-dev.yml.example \
@@ -194,8 +194,7 @@ Les tests utilisent **H2 en mémoire** — aucune dépendance externe. Les rappo
 
 ```bash
 cd frontend
-npm test                                               # mode watch
-npm test -- --watch=false --browsers=ChromeHeadless   # exécution unique (CI)
+npm test -- --watch=false --browsers=ChromeHeadless
 ```
 
 ---
@@ -272,12 +271,12 @@ Deutsche Bank,RICOS72905,Germany,Banking,MARKET,20000000,18500000,EUR
 |---------|------|------------|
 | `name` | texte | Nom de la contrepartie |
 | `ricosCode` | texte | **Clé d'upsert** — doit être unique |
-| `country` | texte | Pays (code ISO ou nom) |
+| `country` | texte | Pays |
 | `sector` | texte | Secteur d'activité |
 | `limitType` | enum | `CREDIT`, `MARKET` ou `LIQUIDITY` |
 | `maxAmount` | décimal | Limite maximale (> 0) |
 | `usedAmount` | décimal | Montant utilisé (≥ 0) |
-| `currency` | texte | Code devise (ex. `EUR`, `USD`) |
+| `currency` | texte | Code devise (`EUR`, `USD`…) |
 
 > La première ligne (en-tête) est ignorée automatiquement.
 
@@ -322,7 +321,7 @@ Tous les endpoints sont regroupés par domaine métier avec leur description, le
 | `http://localhost:8081/swagger-ui.html` | Interface graphique interactive |
 | `http://localhost:8081/v3/api-docs` | Spécification OpenAPI 3.1 (JSON) |
 
-> En mode Docker, le backend est accessible directement sur le port 8081 (non proxifié par nginx).
+> En mode Docker, le backend est accessible directement sur le port 8081.
 
 ---
 
@@ -342,16 +341,8 @@ Tous les endpoints sont regroupés par domaine métier avec leur description, le
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/risklimits` | Liste toutes les limites de risque |
-| `GET` | `/api/risklimits/check` | Vérifie si un montant respecte le seuil 150 % |
-
-Paramètres de `/api/risklimits/check` :
-
-| Paramètre | Type | Description |
-|-----------|------|-------------|
-| `counterpartyId` | Long | Identifiant de la contrepartie |
-| `limitType` | enum | `CREDIT`, `MARKET` ou `LIQUIDITY` |
-| `amount` | BigDecimal | Montant à vérifier |
+| `GET` | `/api/risklimits` | Liste toutes les limites avec niveau d'alerte calculé |
+| `GET` | `/api/risklimits/check?counterpartyId=&limitType=&amount=` | Vérifie si un montant respecte le seuil 150 % |
 
 ### Import
 
@@ -363,10 +354,11 @@ Paramètres de `/api/risklimits/check` :
 
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
-| `GET` | `/api/derogations/pending` | Liste les demandes en attente (`PENDING`) |
+| `GET` | `/api/derogations` | Liste toutes les dérogations |
+| `GET` | `/api/derogations?status=PENDING` | Filtre par statut (`PENDING`, `APPROVED`, `REJECTED`) |
 | `POST` | `/api/derogations` | Soumettre une nouvelle demande |
-| `POST` | `/api/derogations/{id}/approve` | Valider une demande (→ `APPROVED`) |
-| `POST` | `/api/derogations/{id}/reject` | Rejeter une demande (→ `REJECTED`) |
+| `PATCH` | `/api/derogations/{id}/approve` | Valider une demande → `APPROVED` |
+| `PATCH` | `/api/derogations/{id}/reject` | Rejeter une demande → `REJECTED` |
 
 ### Exemple — créer une dérogation
 
@@ -416,19 +408,25 @@ usageRate = (usedAmount / maxAmount) × 100
 riskboard/
 ├── backend/                          # Spring Boot (Maven)
 │   ├── src/
-│   │   ├── main/java/com/riskboard/
-│   │   │   ├── controller/           # REST controllers
-│   │   │   ├── service/              # Logique métier
-│   │   │   ├── repository/           # Spring Data JPA
-│   │   │   ├── entity/               # Entités JPA (Lombok)
-│   │   │   ├── dto/                  # Objets de transfert API
-│   │   │   ├── mapper/               # MapStruct mappers
-│   │   │   ├── enums/                # LimitType · AlertLevel · DerogationStatus
-│   │   │   ├── exception/            # GlobalExceptionHandler
-│   │   │   └── config/               # CORS · OpenApiConfig
+│   │   ├── main/
+│   │   │   ├── java/com/riskboard/
+│   │   │   │   ├── controller/       # REST controllers
+│   │   │   │   ├── service/          # Logique métier
+│   │   │   │   ├── repository/       # Spring Data JPA
+│   │   │   │   ├── entity/           # Entités JPA (Lombok)
+│   │   │   │   ├── dto/              # Objets de transfert API
+│   │   │   │   ├── mapper/           # MapStruct mappers
+│   │   │   │   ├── enums/            # LimitType · AlertLevel · DerogationStatus
+│   │   │   │   ├── exception/        # GlobalExceptionHandler
+│   │   │   │   └── config/           # CORS · OpenApiConfig
+│   │   │   └── resources/
+│   │   │       ├── application.yml
+│   │   │       ├── application-dev.yml          # gitignore (credentials locaux)
+│   │   │       └── application-dev.yml.example  # template commité
 │   │   └── test/
 │   │       ├── java/                 # Tests JUnit 5
 │   │       └── resources/
+│   │           ├── application.yml   # profil test (H2)
 │   │           └── sample-risklimits.csv
 │   ├── Dockerfile
 │   ├── .dockerignore
@@ -444,8 +442,7 @@ riskboard/
 │   ├── nginx.conf                    # Proxy /api/ → backend + SPA fallback
 │   └── package.json
 ├── docs/
-│   ├── screenshots/                  # Captures d'écran du README
-│   └── CHOIX_TECHNIQUES.md          # Argumentaire technique (entretien)
+│   └── screenshots/                  # Captures d'écran du README
 ├── docker-compose.yml
 ├── .env.example                      # Template des variables d'environnement
 ├── .gitlab-ci.yml
