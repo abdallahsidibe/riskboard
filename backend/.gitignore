@@ -1,0 +1,13 @@
+target/
+
+# Fichiers de config locaux avec credentials
+src/main/resources/application-dev.yml
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.DS_Store
+.idea/
+*.iml
+.vscode/
