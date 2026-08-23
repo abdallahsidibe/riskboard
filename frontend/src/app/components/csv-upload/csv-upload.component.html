@@ -1,0 +1,71 @@
+<div class="csv-upload-page">
+  <h1>Import CSV des RiskLimits</h1>
+
+  <p class="hint">
+    Format attendu : <code>name,ricosCode,country,sector,limitType,maxAmount,usedAmount,currency</code>
+  </p>
+
+  <div class="upload-zone">
+    <input
+      type="file"
+      accept=".csv"
+      id="csvFile"
+      (change)="onFileSelected($event)"
+      class="file-input"
+    />
+    <label for="csvFile" class="file-label">
+      @if (selectedFile()) {
+        <span>Fichier : {{ selectedFile()!.name }}</span>
+      } @else {
+        <span>Choisir un fichier CSV...</span>
+      }
+    </label>
+
+    <button
+      class="btn-upload"
+      [disabled]="!selectedFile() || uploading()"
+      (click)="onUpload()"
+    >
+      @if (uploading()) {
+        Import en cours...
+      } @else {
+        Importer
+      }
+    </button>
+  </div>
+
+  @if (uploadError()) {
+    <div class="alert-error">
+      {{ uploadError() }}
+    </div>
+  }
+
+  @if (result()) {
+    <div class="result">
+      <h2>Résultat de l'import</h2>
+      <div class="summary">
+        <span class="success-count">
+          ✓ {{ result()!.successCount }} ligne(s) importée(s) avec succès
+        </span>
+        @if (result()!.errorCount > 0) {
+          <span class="error-count">
+            ✗ {{ result()!.errorCount }} erreur(s)
+          </span>
+        }
+      </div>
+
+      @if (result()!.errors.length > 0) {
+        <div class="error-details">
+          <h3>Détail des erreurs</h3>
+          <ul>
+            @for (err of result()!.errors; track err.lineNumber) {
+              <li>
+                <strong>Ligne {{ err.lineNumber }}</strong> : {{ err.message }}
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  }
+</div>

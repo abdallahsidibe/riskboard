@@ -1,0 +1,53 @@
+<div class="validation-page">
+  <h1>Validation des Demandes de Dérogation</h1>
+
+  @if (actionError()) {
+    <div class="alert-error">{{ actionError() }}</div>
+  }
+
+  @if (loading()) {
+    <p class="info">Chargement...</p>
+  } @else if (error()) {
+    <p class="error">{{ error() }}</p>
+  } @else if (pendingRequests().length === 0) {
+    <p class="empty">Aucune demande en attente.</p>
+  } @else {
+    <table class="validation-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Contrepartie</th>
+          <th>Type</th>
+          <th>Montant</th>
+          <th>Raison</th>
+          <th>Demandé par</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (req of pendingRequests(); track req.id) {
+          <tr>
+            <td>#{{ req.id }}</td>
+            <td>{{ req.counterpartyName }}</td>
+            <td>{{ req.limitType }}</td>
+            <td>{{ req.amount | number:'1.2-2' }}</td>
+            <td class="reason-cell">{{ req.reason }}</td>
+            <td>{{ req.requestedBy }}</td>
+            <td>{{ req.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td class="actions-cell">
+              <button
+                class="btn-approve"
+                (click)="approve(req.id)"
+              >Valider</button>
+              <button
+                class="btn-reject"
+                (click)="reject(req.id)"
+              >Rejeter</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

@@ -1,0 +1,132 @@
+<div class="derogation-form-page">
+  <h1>Demande de Dérogation</h1>
+
+  @if (submitSuccess()) {
+    <div class="alert-success">
+      Demande soumise avec succès !
+    </div>
+  }
+  @if (submitError()) {
+    <div class="alert-error">
+      {{ submitError() }}
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="form">
+
+    <!-- Contrepartie -->
+    <div class="form-group">
+      <label for="counterpartyId">Contrepartie *</label>
+      <select id="counterpartyId" formControlName="counterpartyId" class="form-control">
+        <option [ngValue]="null" disabled>-- Sélectionner une contrepartie --</option>
+        @for (cp of counterparties(); track cp.id) {
+          <option [ngValue]="cp.id">{{ cp.name }} ({{ cp.ricosCode }})</option>
+        }
+      </select>
+      @if (counterpartyIdControl.invalid && counterpartyIdControl.touched) {
+        <span class="field-error">La contrepartie est obligatoire.</span>
+      }
+    </div>
+
+    <!-- Type de risque -->
+    <div class="form-group">
+      <label>Type de risque *</label>
+      <div class="radio-group">
+        @for (type of limitTypes; track type) {
+          <label class="radio-label">
+            <input type="radio" formControlName="limitType" [value]="type" />
+            {{ type }}
+          </label>
+        }
+      </div>
+    </div>
+
+    <!-- Montant -->
+    <div class="form-group">
+      <label for="amount">Montant demandé *</label>
+      <input
+        id="amount"
+        type="number"
+        formControlName="amount"
+        class="form-control"
+        placeholder="Montant"
+        min="0.000001"
+        step="any"
+      />
+      @if (amountControl.invalid && amountControl.touched) {
+        @if (amountControl.errors?.['required']) {
+          <span class="field-error">Le montant est obligatoire.</span>
+        }
+        @if (amountControl.errors?.['min']) {
+          <span class="field-error">Le montant doit être strictement supérieur à 0.</span>
+        }
+      }
+    </div>
+
+    <!-- Raison -->
+    <div class="form-group">
+      <label for="reason">Raison *</label>
+      <textarea
+        id="reason"
+        formControlName="reason"
+        class="form-control"
+        rows="4"
+        placeholder="Minimum 20 caractères..."
+      ></textarea>
+      @if (reasonControl.invalid && reasonControl.touched) {
+        @if (reasonControl.errors?.['required']) {
+          <span class="field-error">La raison est obligatoire.</span>
+        }
+        @if (reasonControl.errors?.['minlength']) {
+          <span class="field-error">La raison doit contenir au moins 20 caractères.</span>
+        }
+      }
+    </div>
+
+    <!-- Demandé par -->
+    <div class="form-group">
+      <label for="requestedBy">Demandé par *</label>
+      <input
+        id="requestedBy"
+        type="text"
+        formControlName="requestedBy"
+        class="form-control"
+        placeholder="Minimum 6 caractères"
+      />
+      @if (requestedByControl.invalid && requestedByControl.touched) {
+        @if (requestedByControl.errors?.['required']) {
+          <span class="field-error">Ce champ est obligatoire.</span>
+        }
+        @if (requestedByControl.errors?.['minlength']) {
+          <span class="field-error">Minimum 6 caractères requis.</span>
+        }
+      }
+    </div>
+
+    <!-- Erreurs de validation asynchrone -->
+    @if (form.pending) {
+      <p class="info">Vérification en cours...</p>
+    }
+    @if (hasNoLimit()) {
+      <div class="alert-error">
+        Aucune limite n'existe pour cette contrepartie et ce type de risque. La demande ne peut pas être soumise.
+      </div>
+    }
+    @if (hasExceedsMax()) {
+      <div class="alert-error">
+        Le montant demandé dépasse 150% de la limite maximum
+        @if (getThreshold() !== null) {
+          (seuil : {{ getThreshold() | number:'1.2-2' }})
+        }.
+      </div>
+    }
+
+    <button
+      type="submit"
+      class="btn-submit"
+      [disabled]="form.invalid || form.pending"
+    >
+      Soumettre la demande
+    </button>
+  </form>
+</div>

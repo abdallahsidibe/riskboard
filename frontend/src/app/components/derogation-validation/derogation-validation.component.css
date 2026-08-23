@@ -1,0 +1,98 @@
+.validation-page {
+  padding: 1.5rem;
+
+  h1 {
+    margin-bottom: 1.25rem;
+    color: #1a1a2e;
+  }
+}
+
+.alert-error {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.info, .empty {
+  color: #555;
+  font-style: italic;
+}
+
+.error {
+  color: #721c24;
+  background: #f8d7da;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+}
+
+.validation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th, td {
+    border: 1px solid #ddd;
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  thead th {
+    background: #1a1a2e;
+    color: white;
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #f9f9f9;
+  }
+
+  tbody tr:hover {
+    background: #eef2ff;
+  }
+
+  .reason-cell {
+    max-width: 220px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .actions-cell {
+    white-space: nowrap;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+}
+
+.btn-approve {
+  padding: 0.35rem 0.85rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #218838;
+  }
+}
+
+.btn-reject {
+  padding: 0.35rem 0.85rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #c82333;
+  }
+}
