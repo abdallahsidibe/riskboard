@@ -1,16 +1,23 @@
-<header class="app-header">
-  <div class="header-brand">
-    <span class="brand-icon">&#9679;</span>
-    <span class="brand-name">RiskBoard</span>
-  </div>
-  <nav class="app-nav">
-    <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
-    <a routerLink="/derogation" routerLinkActive="active">Dérogation</a>
-    <a routerLink="/import" routerLinkActive="active">Import CSV</a>
-    <a routerLink="/validation" routerLinkActive="active">Validation</a>
-  </nav>
-</header>
+<div class="app-shell">
+  <header class="topnav">
+    <div class="topnav-brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">RiskBoard</span>
+    </div>
 
-<main class="app-main">
-  <router-outlet />
-</main>
+    <nav class="topnav-links">
+      <a routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+      <a routerLink="/import" routerLinkActive="active">Upload CSV</a>
+      <a routerLink="/derogation" routerLinkActive="active">Nouvelle Dérogation</a>
+      <a routerLink="/validation" routerLinkActive="active">Validation Dérogations</a>
+    </nav>
+
+    <div class="topnav-user" title="Jean Dupont">
+      <span class="user-avatar">JD</span>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <router-outlet />
+  </main>
+</div>
