@@ -1,93 +1,132 @@
-<div class="form-page">
-  <div class="page-header">
-    <h1 class="page-title">Formulaire de Dérogation</h1>
-    <p class="page-subtitle">Soumettez une demande de dépassement de limite de risque.</p>
-  </div>
+<div class="derogation-form-page">
+  <h1>Demande de Dérogation</h1>
 
-  <div class="form-card">
-    @if (submitSuccess()) {
-      <div class="alert-success">
-        <span class="alert-icon">&#xe876;</span>Demande soumise avec succès !
-      </div>
-    }
-    @if (submitError()) {
-      <div class="alert-error">
-        <span class="alert-icon">&#xe000;</span>{{ submitError() }}
-      </div>
-    }
+  @if (submitSuccess()) {
+    <div class="alert-success">
+      Demande soumise avec succès !
+    </div>
+  }
+  @if (submitError()) {
+    <div class="alert-error">
+      {{ submitError() }}
+    </div>
+  }
 
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="form">
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="counterpartyId">Contrepartie <span class="required">*</span></label>
-          <select id="counterpartyId" formControlName="counterpartyId" class="form-control" [class.invalid]="counterpartyIdControl.invalid && counterpartyIdControl.touched">
-            <option [ngValue]="null" disabled>— Sélectionner —</option>
-            @for (cp of counterparties(); track cp.id) {
-              <option [ngValue]="cp.id">{{ cp.name }}</option>
-            }
-          </select>
-          @if (counterpartyIdControl.invalid && counterpartyIdControl.touched) {
-            <span class="field-error">La contrepartie est obligatoire.</span>
-          }
-        </div>
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="form">
 
-        <div class="form-group">
-          <label class="form-label">Type de risque <span class="required">*</span></label>
-          <div class="radio-group">
-            @for (type of limitTypes; track type) {
-              <label class="radio-label">
-                <input type="radio" formControlName="limitType" [value]="type" class="radio-input" />
-                <span class="radio-text">{{ type }}</span>
-              </label>
-            }
-          </div>
-        </div>
-      </div>
+    <!-- Contrepartie -->
+    <div class="form-group">
+      <label for="counterpartyId">Contrepartie *</label>
+      <select id="counterpartyId" formControlName="counterpartyId" class="form-control">
+        <option [ngValue]="null" disabled>-- Sélectionner une contrepartie --</option>
+        @for (cp of counterparties(); track cp.id) {
+          <option [ngValue]="cp.id">{{ cp.name }} ({{ cp.ricosCode }})</option>
+        }
+      </select>
+      @if (counterpartyIdControl.invalid && counterpartyIdControl.touched) {
+        <span class="field-error">La contrepartie est obligatoire.</span>
+      }
+    </div>
 
-
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="amount">Montant demandé (€) <span class="required">*</span></label>
-          <input id="amount" type="number" formControlName="amount" class="form-control" [class.invalid]="amountControl.invalid && amountControl.touched" placeholder="0" min="0.000001" step="any" />
-          @if (amountControl.invalid && amountControl.touched) {
-            @if (amountControl.errors?.['required']) { <span class="field-error">Le montant est obligatoire.</span> }
-            @if (amountControl.errors?.['min']) { <span class="field-error">Le montant doit être strictement > 0.</span> }
-          }
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="requestedBy">Demandé par <span class="required">*</span></label>
-          <input id="requestedBy" type="text" formControlName="requestedBy" class="form-control" [class.invalid]="requestedByControl.invalid && requestedByControl.touched" placeholder="Prénom.Nom (min. 6 car.)" />
-          @if (requestedByControl.invalid && requestedByControl.touched) {
-            @if (requestedByControl.errors?.['required']) { <span class="field-error">Ce champ est obligatoire.</span> }
-            @if (requestedByControl.errors?.['minlength']) { <span class="field-error">Minimum 6 caractères requis.</span> }
-          }
-        </div>
-      </div>
-
-      <div class="form-group full">
-        <label class="form-label" for="reason">Raison <span class="required">*</span></label>
-        <textarea id="reason" formControlName="reason" class="form-control" [class.invalid]="reasonControl.invalid && reasonControl.touched" rows="4" placeholder="Détaillez la raison de la demande (min. 20 caractères)..."></textarea>
-        @if (reasonControl.invalid && reasonControl.touched) {
-          @if (reasonControl.errors?.['required']) { <span class="field-error">La raison est obligatoire.</span> }
-          @if (reasonControl.errors?.['minlength']) { <span class="field-error">La raison doit contenir au moins 20 caractères ({{ reasonControl.value?.length || 0 }}/20).</span> }
+    <!-- Type de risque -->
+    <div class="form-group">
+      <label>Type de risque *</label>
+      <div class="radio-group">
+        @for (type of limitTypes; track type) {
+          <label class="radio-label">
+            <input type="radio" formControlName="limitType" [value]="type" />
+            {{ type }}
+          </label>
         }
       </div>
+    </div>
 
-      @if (form.pending) {
-        <div class="async-pending">&#xe5d5; Vérification du montant en cours...</div>
+    <!-- Montant -->
+    <div class="form-group">
+      <label for="amount">Montant demandé *</label>
+      <input
+        id="amount"
+        type="number"
+        formControlName="amount"
+        class="form-control"
+        placeholder="Montant"
+        min="0.000001"
+        step="any"
+      />
+      @if (amountControl.invalid && amountControl.touched) {
+        @if (amountControl.errors?.['required']) {
+          <span class="field-error">Le montant est obligatoire.</span>
+        }
+        @if (amountControl.errors?.['min']) {
+          <span class="field-error">Le montant doit être strictement supérieur à 0.</span>
+        }
       }
-      @if (hasNoLimit()) {
-        <div class="alert-error"><span class="alert-icon">&#xe000;</span>Aucune limite n'existe pour cette contrepartie et ce type de risque.</div>
-      }
-      @if (hasExceedsMax()) {
-        <div class="alert-error"><span class="alert-icon">&#xe000;</span>Le montant dépasse 150 % de la limite max@if (getThreshold() !== null) { (seuil : {{ getThreshold() | number:'1.0-0' }} €)}.</div>
-      }
+    </div>
 
-      <div class="form-actions">
-        <button type="button" class="btn-secondary" (click)="form.reset()">Réinitialiser</button>
-        <button type="submit" class="btn-primary" [disabled]="form.invalid || form.pending">Soumettre la demande</button>
+    <!-- Raison -->
+    <div class="form-group">
+      <label for="reason">Raison *</label>
+      <textarea
+        id="reason"
+        formControlName="reason"
+        class="form-control"
+        rows="4"
+        placeholder="Minimum 20 caractères..."
+      ></textarea>
+      @if (reasonControl.invalid && reasonControl.touched) {
+        @if (reasonControl.errors?.['required']) {
+          <span class="field-error">La raison est obligatoire.</span>
+        }
+        @if (reasonControl.errors?.['minlength']) {
+          <span class="field-error">La raison doit contenir au moins 20 caractères.</span>
+        }
+      }
+    </div>
+
+    <!-- Demandé par -->
+    <div class="form-group">
+      <label for="requestedBy">Demandé par *</label>
+      <input
+        id="requestedBy"
+        type="text"
+        formControlName="requestedBy"
+        class="form-control"
+        placeholder="Minimum 6 caractères"
+      />
+      @if (requestedByControl.invalid && requestedByControl.touched) {
+        @if (requestedByControl.errors?.['required']) {
+          <span class="field-error">Ce champ est obligatoire.</span>
+        }
+        @if (requestedByControl.errors?.['minlength']) {
+          <span class="field-error">Minimum 6 caractères requis.</span>
+        }
+      }
+    </div>
+
+    <!-- Erreurs de validation asynchrone -->
+    @if (form.pending) {
+      <p class="info">Vérification en cours...</p>
+    }
+    @if (hasNoLimit()) {
+      <div class="alert-error">
+        Aucune limite n'existe pour cette contrepartie et ce type de risque. La demande ne peut pas être soumise.
       </div>
-    </form>
-  </div>
+    }
+    @if (hasExceedsMax()) {
+      <div class="alert-error">
+        Le montant demandé dépasse 150% de la limite maximum
+        @if (getThreshold() !== null) {
+          (seuil : {{ getThreshold() | number:'1.2-2' }})
+        }.
+      </div>
+    }
+
+    <button
+      type="submit"
+      class="btn-submit"
+      [disabled]="form.invalid || form.pending"
+    >
+      Soumettre la demande
+    </button>
+  </form>
 </div>

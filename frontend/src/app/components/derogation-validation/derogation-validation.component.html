@@ -1,55 +1,53 @@
 <div class="validation-page">
-  <div class="page-header">
-    <h1 class="page-title">Validation des Dérogations</h1>
-    <p class="page-subtitle">Examinez et traitez les demandes en attente d'approbation.</p>
-  </div>
+  <h1>Validation des Demandes de Dérogation</h1>
 
   @if (actionError()) {
-    <div class="alert-error"><span class="alert-icon">&#xe000;</span>{{ actionError() }}</div>
+    <div class="alert-error">{{ actionError() }}</div>
   }
 
-  <div class="table-card">
-    @if (loading()) {
-      <div class="state-info">Chargement...</div>
-    } @else if (error()) {
-      <div class="state-error">{{ error() }}</div>
-    } @else if (pendingRequests().length === 0) {
-      <div class="empty-state">
-        <span class="empty-icon">&#xe8e8;</span>
-        <span class="empty-text">Aucune demande en attente.</span>
-      </div>
-    } @else {
-      <table class="data-table">
-        <thead><tr>
+  @if (loading()) {
+    <p class="info">Chargement...</p>
+  } @else if (error()) {
+    <p class="error">{{ error() }}</p>
+  } @else if (pendingRequests().length === 0) {
+    <p class="empty">Aucune demande en attente.</p>
+  } @else {
+    <table class="validation-table">
+      <thead>
+        <tr>
+          <th>ID</th>
           <th>Contrepartie</th>
           <th>Type</th>
-          <th class="num">Montant</th>
+          <th>Montant</th>
+          <th>Raison</th>
           <th>Demandé par</th>
           <th>Date</th>
-          <th>Raison</th>
           <th>Actions</th>
-        </tr></thead>
-        <tbody>
-          @for (req of pendingRequests(); track req.id) {
-            <tr>
-              <td class="name-cell">{{ req.counterpartyName }}</td>
-              <td><span class="type-chip">{{ req.limitType }}</span></td>
-              <td class="num amount-cell">{{ req.amount | number:'1.0-0' }} EUR</td>
-              <td>{{ req.requestedBy }}</td>
-              <td class="date-cell">{{ req.createdAt | date:'dd/MM/yy HH:mm' }}</td>
-              <td class="reason-cell">{{ req.reason }}</td>
-              <td class="actions-cell">
-                <button class="btn-approve" (click)="approve(req.id)" title="Valider">
-                  <span class="action-icon">&#xe876;</span>
-                </button>
-                <button class="btn-reject" (click)="reject(req.id)" title="Rejeter">
-                  <span class="action-icon">&#xe5cd;</span>
-                </button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
-  </div>
+        </tr>
+      </thead>
+      <tbody>
+        @for (req of pendingRequests(); track req.id) {
+          <tr>
+            <td>#{{ req.id }}</td>
+            <td>{{ req.counterpartyName }}</td>
+            <td>{{ req.limitType }}</td>
+            <td>{{ req.amount | number:'1.2-2' }}</td>
+            <td class="reason-cell">{{ req.reason }}</td>
+            <td>{{ req.requestedBy }}</td>
+            <td>{{ req.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td class="actions-cell">
+              <button
+                class="btn-approve"
+                (click)="approve(req.id)"
+              >Valider</button>
+              <button
+                class="btn-reject"
+                (click)="reject(req.id)"
+              >Rejeter</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
 </div>

@@ -53,10 +53,6 @@ export class DashboardComponent implements OnInit {
   sortConfigs = signal<SortConfig[]>([...DEFAULT_SORT]);
   activeSort = signal<SortConfig | null>(null);
 
-  greenCount = computed(() => this.limits().filter(l => l.alertLevel === 'GREEN').length);
-  orangeCount = computed(() => this.limits().filter(l => l.alertLevel === 'ORANGE').length);
-  redCount = computed(() => this.limits().filter(l => l.alertLevel === 'RED').length);
-
   ngOnInit(): void {
     this.riskLimitService.getAll().subscribe({
       next: (data) => {
@@ -72,10 +68,8 @@ export class DashboardComponent implements OnInit {
 
   filteredLimits = computed(() => {
     const filter = this.filterText().toLowerCase();
-    const type = this.selectedLimitType();
     return this.limits().filter(l =>
-      l.counterpartyName.toLowerCase().includes(filter) &&
-      (type === null || l.limitType === type)
+      l.counterpartyName.toLowerCase().includes(filter)
     );
   });
 

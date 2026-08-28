@@ -1,70 +1,71 @@
-<div class="upload-page">
-  <div class="page-header">
-    <h1 class="page-title">Data Ingestion</h1>
-    <p class="page-subtitle">Importez les données de risque via CSV. L'opération est un upsert basé sur le ricosCode.</p>
+<div class="csv-upload-page">
+  <h1>Import CSV des RiskLimits</h1>
+
+  <p class="hint">
+    Format attendu : <code>name,ricosCode,country,sector,limitType,maxAmount,usedAmount,currency</code>
+  </p>
+
+  <div class="upload-zone">
+    <input
+      type="file"
+      accept=".csv"
+      id="csvFile"
+      (change)="onFileSelected($event)"
+      class="file-input"
+    />
+    <label for="csvFile" class="file-label">
+      @if (selectedFile()) {
+        <span>Fichier : {{ selectedFile()!.name }}</span>
+      } @else {
+        <span>Choisir un fichier CSV...</span>
+      }
+    </label>
+
+    <button
+      class="btn-upload"
+      [disabled]="!selectedFile() || uploading()"
+      (click)="onUpload()"
+    >
+      @if (uploading()) {
+        Import en cours...
+      } @else {
+        Importer
+      }
+    </button>
   </div>
 
-  <div class="content-grid">
-    <div class="upload-card">
-      <h2 class="card-title">Import CSV</h2>
+  @if (uploadError()) {
+    <div class="alert-error">
+      {{ uploadError() }}
+    </div>
+  }
 
-      <div class="drop-zone" (click)="fileInput.click()" [class.has-file]="selectedFile()">
-        <input #fileInput type="file" accept=".csv" (change)="onFileSelected($event)" class="hidden-input" />
-        <span class="drop-icon">&#xe2c6;</span>
-        @if (selectedFile()) {
-          <span class="drop-text">{{ selectedFile()!.name }}</span>
-          <span class="drop-hint">Cliquer pour changer de fichier</span>
-        } @else {
-          <span class="drop-text">Déposer le fichier CSV ici ou cliquer pour parcourir</span>
-          <span class="drop-hint">Taille max : 50 Mo · Format : .csv</span>
+  @if (result()) {
+    <div class="result">
+      <h2>Résultat de l'import</h2>
+      <div class="summary">
+        <span class="success-count">
+          ✓ {{ result()!.successCount }} ligne(s) importée(s) avec succès
+        </span>
+        @if (result()!.errorCount > 0) {
+          <span class="error-count">
+            ✗ {{ result()!.errorCount }} erreur(s)
+          </span>
         }
       </div>
 
-      <button class="btn-primary" [disabled]="!selectedFile() || uploading()" (click)="onUpload()">
-        @if (uploading()) { <span>Import en cours...</span> } @else { <span>&#xe2c6; Importer</span> }
-      </button>
-
-      @if (uploadError()) {
-        <div class="alert-error">{{ uploadError() }}</div>
-      }
-
-      @if (result()) {
-        <div class="result-box">
-          <div class="result-row success-row">
-            <span class="result-icon">&#xe876;</span>
-            <span>{{ result()!.successCount }} ligne(s) importée(s) avec succès</span>
-          </div>
-          @if (result()!.errorCount > 0) {
-            <div class="result-row error-row">
-              <span class="result-icon">&#xe5cd;</span>
-              <span>{{ result()!.errorCount }} erreur(s)</span>
-            </div>
-            <div class="error-list">
-              @for (err of result()!.errors; track err.lineNumber) {
-                <div class="error-item">
-                  <span class="line-badge">Ligne {{ err.lineNumber }}</span>{{ err.message }}
-                </div>
-              }
-            </div>
-          }
+      @if (result()!.errors.length > 0) {
+        <div class="error-details">
+          <h3>Détail des erreurs</h3>
+          <ul>
+            @for (err of result()!.errors; track err.lineNumber) {
+              <li>
+                <strong>Ligne {{ err.lineNumber }}</strong> : {{ err.message }}
+              </li>
+            }
+          </ul>
         </div>
       }
     </div>
-
-    <div class="format-card">
-      <h2 class="card-title">Format attendu</h2>
-      <p class="format-desc">Colonnes requises (ordre exact) :</p>
-      <code class="format-code">name,ricosCode,country,sector,limitType,maxAmount,usedAmount,currency</code>
-      <table class="format-table">
-        <thead><tr><th>Colonne</th><th>Type</th><th>Contrainte</th></tr></thead>
-        <tbody>
-          <tr><td>ricosCode</td><td>texte</td><td>Clé d'upsert unique</td></tr>
-          <tr><td>limitType</td><td>enum</td><td>CREDIT · MARKET · LIQUIDITY</td></tr>
-          <tr><td>maxAmount</td><td>décimal</td><td>Limite max (&gt; 0)</td></tr>
-          <tr><td>usedAmount</td><td>décimal</td><td>Montant utilisé (≥ 0)</td></tr>
-          <tr><td>currency</td><td>texte</td><td>EUR, USD…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  }
 </div>

@@ -1,101 +1,127 @@
 <div class="dashboard">
-  <div class="page-header">
-    <h1 class="page-title">Limites de Risque</h1>
-    <span class="page-subtitle">Surveillance des expositions en temps réel</span>
+  <h1>Dashboard Risques</h1>
+
+  <div class="controls">
+    <input
+      type="text"
+      placeholder="Filtrer par nom de contrepartie..."
+      [value]="filterText()"
+      (input)="setFilter($any($event.target).value)"
+      class="filter-input"
+    />
+    <div class="type-filter">
+      <button
+        [class.active]="selectedLimitType() === null"
+        (click)="setLimitTypeFilter(null)"
+        class="btn-type"
+      >Voir tout</button>
+      <button
+        [class.active]="selectedLimitType() === 'CREDIT'"
+        (click)="setLimitTypeFilter('CREDIT')"
+        class="btn-type"
+      >CREDIT</button>
+      <button
+        [class.active]="selectedLimitType() === 'MARKET'"
+        (click)="setLimitTypeFilter('MARKET')"
+        class="btn-type"
+      >MARKET</button>
+      <button
+        [class.active]="selectedLimitType() === 'LIQUIDITY'"
+        (click)="setLimitTypeFilter('LIQUIDITY')"
+        class="btn-type"
+      >LIQUIDITY</button>
+    </div>
   </div>
 
-  @if (!loading() && !error()) {
-    <div class="metric-cards">
-      <div class="metric-card green">
-        <span class="metric-label">Limites GREEN</span>
-        <span class="metric-value">{{ greenCount() }}</span>
-        <span class="metric-icon">&#xe876;</span>
-      </div>
-      <div class="metric-card orange">
-        <span class="metric-label">Limites ORANGE</span>
-        <span class="metric-value">{{ orangeCount() }}</span>
-        <span class="metric-icon">&#xe002;</span>
-      </div>
-      <div class="metric-card red">
-        <span class="metric-label">Limites RED</span>
-        <span class="metric-value">{{ redCount() }}</span>
-        <span class="metric-icon">&#xe002;</span>
-      </div>
+  @if (loading()) {
+    <p class="info">Chargement...</p>
+  } @else if (error()) {
+    <p class="error">{{ error() }}</p>
+  } @else if (selectedLimitType() !== null) {
+    <!-- Vue agrégée par secteur -->
+    <h2>Vue agrégée — {{ selectedLimitType() }}</h2>
+    <table class="risk-table">
+      <thead>
+        <tr>
+          <th>Type de limite</th>
+          <th>Secteur</th>
+          <th>Total Utilisé</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of aggregatedData(); track row.sector) {
+          <tr>
+            <td>{{ row.limitType }}</td>
+            <td>{{ row.sector }}</td>
+            <td>{{ row.totalUsed | number:'1.2-2' }}</td>
+          </tr>
+        }
+        @if (aggregatedData().length === 0) {
+          <tr><td colspan="3" class="empty">Aucune donnée</td></tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <!-- Vue détaillée -->
+    <table class="risk-table">
+      <thead>
+        <tr>
+          <th (click)="sortBy('counterpartyName')" class="sortable">
+            Nom {{ getSortIcon('counterpartyName') }}
+          </th>
+          <th (click)="sortBy('limitType')" class="sortable">
+            Type de limite {{ getSortIcon('limitType') }}
+          </th>
+          <th (click)="sortBy('sector')" class="sortable">
+            Secteur {{ getSortIcon('sector') }}
+          </th>
+          <th (click)="sortBy('maxAmount')" class="sortable">
+            Limite Max {{ getSortIcon('maxAmount') }}
+          </th>
+          <th (click)="sortBy('usedAmount')" class="sortable">
+            Utilisé {{ getSortIcon('usedAmount') }}
+          </th>
+          <th (click)="sortBy('usageRate')" class="sortable">
+            % Usage {{ getSortIcon('usageRate') }}
+          </th>
+          <th (click)="sortBy('alertLevel')" class="sortable">
+            Statut {{ getSortIcon('alertLevel') }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (limit of paginatedLimits(); track limit.id) {
+          <tr>
+            <td>{{ limit.counterpartyName }}</td>
+            <td>{{ limit.limitType }}</td>
+            <td>{{ limit.sector }}</td>
+            <td>{{ limit.maxAmount | number:'1.2-2' }} {{ limit.currency }}</td>
+            <td>{{ limit.usedAmount | number:'1.2-2' }} {{ limit.currency }}</td>
+            <td>{{ limit.usageRate | number:'1.1-1' }}%</td>
+            <td>
+              <span [class]="alertClass(limit.alertLevel)">
+                {{ limit.alertLevel }}{{ alertIcon(limit.alertLevel) }}
+              </span>
+            </td>
+          </tr>
+        }
+        @if (paginatedLimits().length === 0) {
+          <tr><td colspan="7" class="empty">Aucune donnée</td></tr>
+        }
+      </tbody>
+    </table>
+
+    <div class="pagination">
+      <button (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1" class="btn-page">Précédent</button>
+      @for (page of pages(); track page) {
+        <button
+          (click)="goToPage(page)"
+          [class.active]="page === currentPage()"
+          class="btn-page"
+        >{{ page }}</button>
+      }
+      <button (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() === totalPages()" class="btn-page">Suivant</button>
+      <span class="page-info">Page {{ currentPage() }} / {{ totalPages() }}</span>
     </div>
   }
-
-  <div class="table-card">
-    <div class="controls">
-      <input
-        type="text"
-        placeholder="Rechercher une contrepartie..."
-        [value]="filterText()"
-        (input)="setFilter($any($event.target).value)"
-        class="search-input"
-      />
-      <div class="type-filter">
-        <button [class.active]="selectedLimitType() === null" (click)="setLimitTypeFilter(null)" class="btn-type">Vue détaillée</button>
-        <button [class.active]="selectedLimitType() === 'CREDIT'" (click)="setLimitTypeFilter('CREDIT')" class="btn-type">CREDIT</button>
-        <button [class.active]="selectedLimitType() === 'MARKET'" (click)="setLimitTypeFilter('MARKET')" class="btn-type">MARKET</button>
-        <button [class.active]="selectedLimitType() === 'LIQUIDITY'" (click)="setLimitTypeFilter('LIQUIDITY')" class="btn-type">LIQUIDITY</button>
-      </div>
-    </div>
-
-    @if (loading()) {
-      <div class="state-info">Chargement...</div>
-    } @else if (error()) {
-      <div class="state-error">{{ error() }}</div>
-    } @else {
-      @if (selectedLimitType() !== null) {
-        <div class="agg-header">
-          <span class="agg-label">Vue agrégée — <strong>{{ selectedLimitType() }}</strong> · par secteur</span>
-          <div class="agg-chips">
-            @for (row of aggregatedData(); track row.sector) {
-              <div class="agg-chip">
-                <span class="agg-sector">{{ row.sector }}</span>
-                <span class="agg-total">{{ row.totalUsed | number:'1.0-0' }} EUR</span>
-              </div>
-            }
-          </div>
-          <button class="btn-reset" (click)="setLimitTypeFilter(null)">← Tous les types</button>
-        </div>
-      }
-      <table class="data-table">
-        <thead><tr>
-          <th (click)="sortBy('counterpartyName')" class="sortable">Contrepartie <span class="sort-icon">{{ getSortIcon('counterpartyName') }}</span></th>
-          <th (click)="sortBy('limitType')" class="sortable">Type <span class="sort-icon">{{ getSortIcon('limitType') }}</span></th>
-          <th (click)="sortBy('sector')" class="sortable">Secteur <span class="sort-icon">{{ getSortIcon('sector') }}</span></th>
-          <th (click)="sortBy('maxAmount')" class="sortable num">Limite Max <span class="sort-icon">{{ getSortIcon('maxAmount') }}</span></th>
-          <th (click)="sortBy('usedAmount')" class="sortable num">Utilisé <span class="sort-icon">{{ getSortIcon('usedAmount') }}</span></th>
-          <th (click)="sortBy('usageRate')" class="sortable num">% Usage <span class="sort-icon">{{ getSortIcon('usageRate') }}</span></th>
-          <th (click)="sortBy('alertLevel')" class="sortable">Statut <span class="sort-icon">{{ getSortIcon('alertLevel') }}</span></th>
-        </tr></thead>
-        <tbody>
-          @for (limit of paginatedLimits(); track limit.id) {
-            <tr>
-              <td class="name-cell">{{ limit.counterpartyName }}</td>
-              <td><span class="type-chip">{{ limit.limitType }}</span></td>
-              <td>{{ limit.sector }}</td>
-              <td class="num">{{ limit.maxAmount | number:'1.0-0' }} {{ limit.currency }}</td>
-              <td class="num">{{ limit.usedAmount | number:'1.0-0' }} {{ limit.currency }}</td>
-              <td class="num">{{ limit.usageRate | number:'1.1-1' }}%</td>
-              <td><span [class]="alertClass(limit.alertLevel)">{{ limit.alertLevel }}</span></td>
-            </tr>
-          }
-          @if (paginatedLimits().length === 0) {
-            <tr><td colspan="7" class="empty-row">Aucune donnée</td></tr>
-          }
-        </tbody>
-      </table>
-
-      <div class="pagination">
-        <button (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1" class="btn-page">← Précédent</button>
-        @for (page of pages(); track page) {
-          <button (click)="goToPage(page)" [class.active]="page === currentPage()" class="btn-page">{{ page }}</button>
-        }
-        <button (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() === totalPages()" class="btn-page">Suivant →</button>
-        <span class="page-info">{{ currentPage() }} / {{ totalPages() }}</span>
-      </div>
-    }
-  </div>
 </div>
