@@ -1,80 +1,222 @@
-name: Deploy to VPS
+name: Deploy
+
+# Triggered by build.yml after a successful image push, or manually.
+#
+# GitHub Environments used:
+#   integration  → auto deploy, no approval
+#   production   → requires manual approval (Release Manager)
+#
+# Each environment must define:
+#   vars.VPS_HOST
+#   vars.VPS_USER
+#   vars.DEPLOY_PATH          (/opt/riskboard/int or /opt/riskboard/prod)
+#   vars.COMPOSE_PROJECT_NAME (riskboard-int or riskboard-prod)
+#   secrets.SSH_PRIVATE_KEY
+#   secrets.DB_USERNAME
+#   secrets.DB_PASSWORD
 
 on:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      image_tag:
+        description: Short Git SHA of the image to deploy
+        required: true
+        type: string
+      target:
+        description: Target environment (int-only, or int-then-prod)
+        required: false
+        type: string
+        default: int-then-prod
   workflow_dispatch:
-
-env:
-  REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/riskboard-backend
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/riskboard-frontend
+    inputs:
+      image_tag:
+        description: Short Git SHA to deploy — laisser vide pour utiliser le dernier commit de la branche
+        required: false
+        type: string
+      target:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - int-only
+          - prod-only
+          - int-then-prod
+        default: int-only
 
 jobs:
-  # ── Build & push images ────────────────────────────────────────────────────
-  build:
-    name: Build & push Docker images
+  # ── Resolve image tag ────────────────────────────────────────────────────────
+  resolve-tag:
+    name: Resolve image tag
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    outputs:
+      image_tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute tag
+        id: tag
+        run: |
+          if [ -n "${{ needs.resolve-tag.outputs.image_tag }}" ]; then
+            echo "value=${{ needs.resolve-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── INT ─────────────────────────────────────────────────────────────────────
+  deploy-int:
+    name: Deploy ${{ needs.resolve-tag.outputs.image_tag }} → INT
+    runs-on: ubuntu-latest
+    needs: resolve-tag
+    environment: integration
+    if: inputs.target == 'int-only' || inputs.target == 'int-then-prod'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push backend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          push: true
-          tags: ${{ env.BACKEND_IMAGE }}:latest,${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build & push frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: true
-          tags: ${{ env.FRONTEND_IMAGE }}:latest,${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ── Deploy on VPS ──────────────────────────────────────────────────────────
-  deploy:
-    name: Deploy on VPS
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Deploy via SSH
+      - name: Deploy INT via SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd /opt/riskboard
+            cd ${{ vars.DEPLOY_PATH }}
 
-            # Pull latest images
-            docker compose -f docker-compose.prod.yml pull
+            # Save current tag for rollback
+            [ -f .current_tag ] && cp .current_tag .previous_tag
+            echo "${{ needs.resolve-tag.outputs.image_tag }}" > .current_tag
 
-            # Restart services (zero-downtime: db stays up)
-            docker compose -f docker-compose.prod.yml up -d --no-deps backend frontend
+            # Pull and deploy with project isolation
+            IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              pull backend frontend
 
-            # Remove dangling images
+            IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d --no-deps backend frontend
+
             docker image prune -f
+            echo "INT deployed: ${{ needs.resolve-tag.outputs.image_tag }} — $(date)"
 
-            echo "✅ Deployment complete — $(date)"
+      - name: Health check INT
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            for i in $(seq 1 12); do
+              status=$(curl -sf http://localhost:${{ vars.BACKEND_PORT }}/actuator/health \
+                | grep -o '"status":"UP"' || true)
+              if [ "$status" = '"status":"UP"' ]; then
+                echo "INT backend UP"
+                exit 0
+              fi
+              echo "Attempt $i/12 — waiting 5s..."
+              sleep 5
+            done
+            echo "INT health check FAILED"
+            exit 1
+
+      - name: Rollback INT on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ vars.DEPLOY_PATH }}
+            [ -f .previous_tag ] || { echo "No previous tag, cannot rollback"; exit 1; }
+            PREV=$(cat .previous_tag)
+            echo "Rolling back INT to $PREV..."
+            IMAGE_TAG=$PREV docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d --no-deps backend frontend
+
+  # ── PROD ────────────────────────────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy ${{ needs.resolve-tag.outputs.image_tag }} → PROD
+    runs-on: ubuntu-latest
+    needs: [resolve-tag, deploy-int]
+    if: always() && (inputs.target == 'prod-only' || inputs.target == 'int-then-prod') && (needs.deploy-int.result == 'success' || needs.deploy-int.result == 'skipped')
+    environment: production      # ← requires manual approval from Release Manager
+
+    steps:
+      - name: Deploy PROD via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ vars.DEPLOY_PATH }}
+
+            [ -f .current_tag ] && cp .current_tag .previous_tag
+            echo "${{ needs.resolve-tag.outputs.image_tag }}" > .current_tag
+
+            IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              pull backend frontend
+
+            IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d --no-deps backend frontend
+
+            docker image prune -f
+            echo "PROD deployed: ${{ needs.resolve-tag.outputs.image_tag }} — $(date)"
+
+      - name: Health check PROD
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            for i in $(seq 1 12); do
+              status=$(curl -sf http://localhost:${{ vars.BACKEND_PORT }}/actuator/health \
+                | grep -o '"status":"UP"' || true)
+              if [ "$status" = '"status":"UP"' ]; then
+                echo "PROD backend UP"
+                exit 0
+              fi
+              echo "Attempt $i/12 — waiting 5s..."
+              sleep 5
+            done
+            echo "PROD health check FAILED"
+            exit 1
+
+      - name: Rollback PROD on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ${{ vars.DEPLOY_PATH }}
+            [ -f .previous_tag ] || { echo "No previous tag, cannot rollback"; exit 1; }
+            PREV=$(cat .previous_tag)
+            echo "Rolling back PROD to $PREV..."
+            IMAGE_TAG=$PREV docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d --no-deps backend frontend
