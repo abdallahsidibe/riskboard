@@ -10,6 +10,10 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     show-sql: false
 
+cors:
+  allowed-origins:
+    - http://localhost:4200
+
 logging:
   level:
     com.riskboard: DEBUG
