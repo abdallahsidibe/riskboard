@@ -1,0 +1,13 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate   # plus sûr en prod — ne modifie jamais le schéma
+
+cors:
+  allowed-origins:
+    - ${CORS_ALLOWED_ORIGINS}   # obligatoire en prod — doit être injecté par GitHub Actions
+
+logging:
+  level:
+    com.riskboard: WARN
+    org.springframework.web: WARN
