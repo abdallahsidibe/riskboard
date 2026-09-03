@@ -12,7 +12,6 @@ env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/riskboard-backend
   FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/riskboard-frontend
-  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build:
@@ -64,12 +63,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Automatically trigger deployment to production after build
   trigger-deploy:
-    name: Trigger deploy
+    name: Trigger deploy → INT then PROD
     needs: build
     uses: ./.github/workflows/deploy.yml
     with:
       image_tag: ${{ needs.build.outputs.image_tag }}
-      environment: production
+      target: int-then-prod
     secrets: inherit

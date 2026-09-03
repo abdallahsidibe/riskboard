@@ -55,8 +55,8 @@ jobs:
       - name: Compute tag
         id: tag
         run: |
-          if [ -n "${{ needs.resolve-tag.outputs.image_tag }}" ]; then
-            echo "value=${{ needs.resolve-tag.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "value=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
           else
             echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           fi
@@ -83,6 +83,10 @@ jobs:
             # Save current tag for rollback
             [ -f .current_tag ] && cp .current_tag .previous_tag
             echo "${{ needs.resolve-tag.outputs.image_tag }}" > .current_tag
+
+            # Inject GitHub Environment variable into .env
+            sed -i '/^CORS_ALLOWED_ORIGINS=/d' .env
+            echo "CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}" >> .env
 
             # Pull and deploy with project isolation
             IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
@@ -163,6 +167,10 @@ jobs:
 
             [ -f .current_tag ] && cp .current_tag .previous_tag
             echo "${{ needs.resolve-tag.outputs.image_tag }}" > .current_tag
+
+            # Inject GitHub Environment variable into .env
+            sed -i '/^CORS_ALLOWED_ORIGINS=/d' .env
+            echo "CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}" >> .env
 
             IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
             docker compose \
