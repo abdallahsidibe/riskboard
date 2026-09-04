@@ -1,12 +1,12 @@
 name: Build & Push Images
 
-# Triggered after CI passes on main.
-# Produces immutable images tagged with the short Git SHA.
-# This SHA is then used by deploy.yml — never :latest in production.
+# Git Flow strategy:
+#   develop → build → deploy INT  (automatic, no approval)
+#   main    → build → deploy PROD (requires Release Manager approval)
 
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
 
 env:
   REGISTRY: ghcr.io
@@ -63,11 +63,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  trigger-deploy:
-    name: Trigger deploy → INT then PROD
+  # develop → INT (automatic)
+  deploy-int:
+    name: Deploy → INT
+    if: github.ref == 'refs/heads/develop'
     needs: build
     uses: ./.github/workflows/deploy.yml
     with:
       image_tag: ${{ needs.build.outputs.image_tag }}
-      target: int-then-prod
+      target: int-only
+    secrets: inherit
+
+  # main → PROD (requires approval)
+  deploy-prod:
+    name: Deploy → PROD
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    uses: ./.github/workflows/deploy.yml
+    with:
+      image_tag: ${{ needs.build.outputs.image_tag }}
+      target: prod-only
     secrets: inherit
