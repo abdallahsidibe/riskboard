@@ -51,7 +51,8 @@ jobs:
     outputs:
       image_tag: ${{ steps.tag.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
+
       - name: Compute tag
         id: tag
         run: |
@@ -60,6 +61,13 @@ jobs:
           else
             echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Verify image exists on GHCR
+        run: |
+          TAG="${{ steps.tag.outputs.value }}"
+          echo "Checking ghcr.io/${{ github.repository_owner }}/riskboard-backend:$TAG"
+          docker manifest inspect ghcr.io/${{ github.repository_owner }}/riskboard-backend:$TAG > /dev/null \
+            || { echo "ERROR: Image tag '$TAG' not found on GHCR. Run build.yml first."; exit 1; }
 
   # ── INT ─────────────────────────────────────────────────────────────────────
   deploy-int:
@@ -71,7 +79,7 @@ jobs:
 
     steps:
       - name: Deploy INT via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
@@ -107,7 +115,7 @@ jobs:
             echo "INT deployed: ${{ needs.resolve-tag.outputs.image_tag }} — $(date)"
 
       - name: Health check INT
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
@@ -129,7 +137,7 @@ jobs:
 
       - name: Rollback INT on failure
         if: failure()
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
@@ -156,7 +164,7 @@ jobs:
 
     steps:
       - name: Deploy PROD via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
@@ -190,7 +198,7 @@ jobs:
             echo "PROD deployed: ${{ needs.resolve-tag.outputs.image_tag }} — $(date)"
 
       - name: Health check PROD
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
@@ -212,7 +220,7 @@ jobs:
 
       - name: Rollback PROD on failure
         if: failure()
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
