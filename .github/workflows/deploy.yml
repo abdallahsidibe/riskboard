@@ -150,15 +150,15 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            for i in $(seq 1 12); do
+            for i in $(seq 1 24); do
               status=$(curl -sf http://localhost:${{ vars.BACKEND_PORT }}/actuator/health \
                 | grep -o '"status":"UP"' || true)
               if [ "$status" = '"status":"UP"' ]; then
                 echo "INT backend UP"
                 exit 0
               fi
-              echo "Attempt $i/12 — waiting 5s..."
-              sleep 5
+              echo "Attempt $i/24 — waiting 10s..."
+              sleep 10
             done
             echo "INT health check FAILED"
             exit 1
@@ -261,15 +261,15 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            for i in $(seq 1 12); do
+            for i in $(seq 1 24); do
               status=$(curl -sf http://localhost:${{ vars.BACKEND_PORT }}/actuator/health \
                 | grep -o '"status":"UP"' || true)
               if [ "$status" = '"status":"UP"' ]; then
                 echo "PROD backend UP"
                 exit 0
               fi
-              echo "Attempt $i/12 — waiting 5s..."
-              sleep 5
+              echo "Attempt $i/24 — waiting 10s..."
+              sleep 10
             done
             echo "PROD health check FAILED"
             exit 1
