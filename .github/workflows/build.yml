@@ -3,10 +3,17 @@ name: Build & Push Images
 # Git Flow strategy:
 #   develop → build → deploy INT  (automatic, no approval)
 #   main    → build → deploy PROD (requires Release Manager approval)
+#   any branch (manual) → build → deploy INT optionnel
 
 on:
   push:
     branches: [develop, main]
+  workflow_dispatch:
+    inputs:
+      deploy_to_int:
+        description: Déployer sur INT après le build ?
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -63,10 +70,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # develop → INT (automatic)
+  # develop → INT (automatic) ou branche quelconque (manuel avec deploy_to_int=true)
   deploy-int:
     name: Deploy → INT
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/develop' || inputs.deploy_to_int == true
     needs: build
     uses: ./.github/workflows/deploy.yml
     with:
