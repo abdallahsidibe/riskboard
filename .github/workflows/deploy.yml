@@ -78,6 +78,27 @@ jobs:
     if: inputs.target == 'int-only' || inputs.target == 'int-then-prod'
 
     steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Sync compose file → INT
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: docker-compose.prod.yml
+          target: ${{ vars.DEPLOY_PATH }}
+          strip_components: 0
+          overwrite: true
+
+      - name: Rename compose file on VPS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: mv ${{ vars.DEPLOY_PATH }}/docker-compose.prod.yml ${{ vars.DEPLOY_PATH }}/compose.yml
+
       - name: Deploy INT via SSH
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -95,6 +116,13 @@ jobs:
             # Inject GitHub Environment variable into .env
             sed -i '/^CORS_ALLOWED_ORIGINS=/d' .env
             echo "CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}" >> .env
+
+            # Ensure postgres is running (idempotent — no-op if already healthy)
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d postgres
 
             # Pull and deploy with project isolation
             IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
@@ -163,6 +191,27 @@ jobs:
     environment: production      # ← requires manual approval from Release Manager
 
     steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Sync compose file → PROD
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: docker-compose.prod.yml
+          target: ${{ vars.DEPLOY_PATH }}
+          strip_components: 0
+          overwrite: true
+
+      - name: Rename compose file on VPS
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: mv ${{ vars.DEPLOY_PATH }}/docker-compose.prod.yml ${{ vars.DEPLOY_PATH }}/compose.yml
+
       - name: Deploy PROD via SSH
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -179,6 +228,13 @@ jobs:
             # Inject GitHub Environment variable into .env
             sed -i '/^CORS_ALLOWED_ORIGINS=/d' .env
             echo "CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}" >> .env
+
+            # Ensure postgres is running (idempotent — no-op if already healthy)
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d postgres
 
             IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
             docker compose \
