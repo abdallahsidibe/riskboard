@@ -96,6 +96,13 @@ jobs:
             sed -i '/^CORS_ALLOWED_ORIGINS=/d' .env
             echo "CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}" >> .env
 
+            # Ensure postgres is running (idempotent — no-op if already healthy)
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d postgres
+
             # Pull and deploy with project isolation
             IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
             docker compose \
@@ -179,6 +186,13 @@ jobs:
             # Inject GitHub Environment variable into .env
             sed -i '/^CORS_ALLOWED_ORIGINS=/d' .env
             echo "CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}" >> .env
+
+            # Ensure postgres is running (idempotent — no-op if already healthy)
+            docker compose \
+              -p ${{ vars.COMPOSE_PROJECT_NAME }} \
+              --env-file .env \
+              -f compose.yml \
+              up -d postgres
 
             IMAGE_TAG=${{ needs.resolve-tag.outputs.image_tag }} \
             docker compose \

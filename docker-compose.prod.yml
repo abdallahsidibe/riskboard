@@ -56,8 +56,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-4201}:80"
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks:
       - internal
 
