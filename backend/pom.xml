@@ -51,6 +51,15 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Micrometer Prometheus — expose /actuator/prometheus for scraping -->
+        <!--Prometheus Observability
+        Expose Micrometer metrics in Prometheus format, an in-memory dimensional time series database
+        with a simple built-in UI, a custom query language, and math operations-->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- PostgreSQL (runtime) -->
         <dependency>
             <groupId>org.postgresql</groupId>

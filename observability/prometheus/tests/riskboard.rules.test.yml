@@ -1,0 +1,209 @@
+rule_files:
+  - ../rules/riskboard.rules.yml
+
+evaluation_interval: 15s
+
+tests:
+  # ────────────────────────────────────────────────────────────────────────────
+  # A01 — BackendScrapeFailed
+  # ────────────────────────────────────────────────────────────────────────────
+
+  - name: "BackendScrapeFailed — nominal : backend UP, pas d'alerte"
+    interval: 15s
+    input_series:
+      - series: 'up{job="riskboard-backend", instance="backend:8080"}'
+        values: '1 1 1 1 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: BackendScrapeFailed
+        exp_alerts: []
+
+  - name: "BackendScrapeFailed — backend DOWN immédiatement : alerte pending, pas encore firing"
+    interval: 15s
+    input_series:
+      - series: 'up{job="riskboard-backend", instance="backend:8080"}'
+        values: '0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 1m45s
+        alertname: BackendScrapeFailed
+        exp_alerts: []
+
+  - name: "BackendScrapeFailed — backend DOWN depuis 2 min : alerte firing"
+    interval: 15s
+    input_series:
+      - series: 'up{job="riskboard-backend", instance="backend:8080"}'
+        values: '0 0 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m15s
+        alertname: BackendScrapeFailed
+        exp_alerts:
+          - exp_labels:
+              alertname: BackendScrapeFailed
+              job: riskboard-backend
+              instance: "backend:8080"
+              severity: critical
+              team: riskboard
+            exp_annotations:
+              summary: "Scraping backend RiskBoard échoué"
+              description: "Prometheus ne peut plus collecter les métriques du backend backend:8080 depuis 2 minutes. Vérifier que le conteneur backend est démarré et que /actuator/prometheus répond.\n"
+              runbook: "https://github.com/riskboard/docs/observability/runbook.md#backend-scrape-failed"
+
+  - name: "BackendScrapeFailed — backend revient UP : alerte résolue"
+    interval: 15s
+    input_series:
+      - series: 'up{job="riskboard-backend", instance="backend:8080"}'
+        # DOWN pendant 3 min, puis UP
+        values: '0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m30s
+        alertname: BackendScrapeFailed
+        exp_alerts:
+          - exp_labels:
+              alertname: BackendScrapeFailed
+              job: riskboard-backend
+              instance: "backend:8080"
+              severity: critical
+              team: riskboard
+            exp_annotations:
+              summary: "Scraping backend RiskBoard échoué"
+              description: "Prometheus ne peut plus collecter les métriques du backend backend:8080 depuis 2 minutes. Vérifier que le conteneur backend est démarré et que /actuator/prometheus répond.\n"
+              runbook: "https://github.com/riskboard/docs/observability/runbook.md#backend-scrape-failed"
+      - eval_time: 4m
+        alertname: BackendScrapeFailed
+        exp_alerts: []
+
+  - name: "BackendScrapeFailed — absence de série : pas d'alerte (cible non déclarée)"
+    interval: 15s
+    input_series: []
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: BackendScrapeFailed
+        exp_alerts: []
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # A02 — HighHttpErrorRate
+  # ────────────────────────────────────────────────────────────────────────────
+
+  - name: "HighHttpErrorRate — nominal : 0 % d'erreurs, pas d'alerte"
+    interval: 15s
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="riskboard-backend", status="200"}'
+        values: '0+10x40'
+      - series: 'http_server_requests_seconds_count{job="riskboard-backend", status="500"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: HighHttpErrorRate
+        exp_alerts: []
+
+  - name: "HighHttpErrorRate — 3 % d'erreurs : sous le seuil, pas d'alerte"
+    interval: 15s
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="riskboard-backend", status="200"}'
+        values: '0+97x40'
+      - series: 'http_server_requests_seconds_count{job="riskboard-backend", status="500"}'
+        values: '0+3x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: HighHttpErrorRate
+        exp_alerts: []
+
+  - name: "HighHttpErrorRate — 10 % d'erreurs pendant 5 min : alerte firing"
+    interval: 15s
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="riskboard-backend", status="200"}'
+        values: '0+90x40'
+      - series: 'http_server_requests_seconds_count{job="riskboard-backend", status="500"}'
+        values: '0+10x40'
+    alert_rule_test:
+      - eval_time: 4m45s
+        alertname: HighHttpErrorRate
+        exp_alerts: []
+      - eval_time: 5m15s
+        alertname: HighHttpErrorRate
+        exp_alerts:
+          - exp_labels:
+              alertname: HighHttpErrorRate
+              severity: warning
+              team: riskboard
+            exp_annotations:
+              summary: "Taux d'erreurs HTTP 5xx élevé sur RiskBoard"
+              description: "Plus de 5 % des requêtes HTTP retournent une erreur 5xx depuis 5 minutes. Taux actuel : 10%.\n"
+              runbook: "https://github.com/riskboard/docs/observability/runbook.md#high-http-error-rate"
+
+  - name: "HighHttpErrorRate — trafic nul : pas d'alerte (division par zéro évitée)"
+    interval: 15s
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="riskboard-backend", status="200"}'
+        values: '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: HighHttpErrorRate
+        exp_alerts: []
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # A03 — DiskSpaceLow
+  # ────────────────────────────────────────────────────────────────────────────
+
+  - name: "DiskSpaceLow — nominal : 50 % disponible, pas d'alerte"
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/", fstype="ext4"}'
+        values: '107374182400+0x40'
+      - series: 'node_filesystem_size_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/", fstype="ext4"}'
+        values: '214748364800+0x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: DiskSpaceLow
+        exp_alerts: []
+
+  - name: "DiskSpaceLow — 10 % disponible pendant 5 min : alerte firing"
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/", fstype="ext4"}'
+        values: '21474836480+0x40'
+      - series: 'node_filesystem_size_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/", fstype="ext4"}'
+        values: '214748364800+0x40'
+    alert_rule_test:
+      - eval_time: 4m45s
+        alertname: DiskSpaceLow
+        exp_alerts: []
+      - eval_time: 5m15s
+        alertname: DiskSpaceLow
+        exp_alerts:
+          - exp_labels:
+              alertname: DiskSpaceLow
+              job: node-exporter
+              instance: "node-exporter:9100"
+              severity: warning
+              team: riskboard
+              mountpoint: "/"
+              fstype: "ext4"
+            exp_annotations:
+              summary: "Espace disque bas sur /"
+              description: "Moins de 15 % d'espace disponible sur le point de montage / de l'instance node-exporter:9100. Espace disponible : 10 %.\n"
+              runbook: "https://github.com/riskboard/docs/observability/runbook.md#disk-space-low"
+
+  - name: "DiskSpaceLow — exactement 15 % disponible : sous le seuil strict, pas d'alerte"
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/", fstype="ext4"}'
+        values: '32212254720+0x40'
+      - series: 'node_filesystem_size_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/", fstype="ext4"}'
+        values: '214748364800+0x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: DiskSpaceLow
+        exp_alerts: []
+
+  - name: "DiskSpaceLow — tmpfs exclu : pas d'alerte même si plein"
+    interval: 15s
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/run", fstype="tmpfs"}'
+        values: '1024+0x40'
+      - series: 'node_filesystem_size_bytes{job="node-exporter", instance="node-exporter:9100", mountpoint="/run", fstype="tmpfs"}'
+        values: '1048576+0x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: DiskSpaceLow
+        exp_alerts: []

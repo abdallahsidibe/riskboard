@@ -2,4 +2,3 @@ target/
 .git/
 *.md
 src/test/
-src/main/resources/application-dev.yml

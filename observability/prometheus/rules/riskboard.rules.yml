@@ -1,0 +1,56 @@
+groups:
+  - name: riskboard.backend
+    interval: 15s
+    rules:
+      - alert: BackendScrapeFailed
+        expr: up{job="riskboard-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: riskboard
+        annotations:
+          summary: "Scraping backend RiskBoard échoué"
+          description: >
+            Prometheus ne peut plus collecter les métriques du backend
+            {{ $labels.instance }} depuis 2 minutes.
+            Vérifier que le conteneur backend est démarré et que /actuator/prometheus répond.
+          runbook: "https://github.com/riskboard/docs/observability/runbook.md#backend-scrape-failed"
+
+      - alert: HighHttpErrorRate
+        expr: >
+          (
+            sum(rate(http_server_requests_seconds_count{job="riskboard-backend", status=~"5.."}[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{job="riskboard-backend"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: riskboard
+        annotations:
+          summary: "Taux d'erreurs HTTP 5xx élevé sur RiskBoard"
+          description: >
+            Plus de 5 % des requêtes HTTP retournent une erreur 5xx depuis 5 minutes.
+            Taux actuel : {{ $value | humanizePercentage }}.
+          runbook: "https://github.com/riskboard/docs/observability/runbook.md#high-http-error-rate"
+
+  - name: riskboard.infrastructure
+    interval: 15s
+    rules:
+      - alert: DiskSpaceLow
+        expr: >
+          (
+            node_filesystem_avail_bytes{job="node-exporter", fstype!~"tmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{job="node-exporter", fstype!~"tmpfs|overlay|squashfs"}
+          ) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          team: riskboard
+        annotations:
+          summary: "Espace disque bas sur {{ $labels.mountpoint }}"
+          description: >
+            Moins de 15 % d'espace disponible sur le point de montage {{ $labels.mountpoint }}
+            de l'instance {{ $labels.instance }}.
+            Espace disponible : {{ $value | humanize }} %.
+          runbook: "https://github.com/riskboard/docs/observability/runbook.md#disk-space-low"
