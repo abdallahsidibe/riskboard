@@ -12,6 +12,8 @@ import com.riskboard.mapper.DerogationRequestMapper;
 import com.riskboard.repository.CounterpartyRepository;
 import com.riskboard.repository.DerogationRequestRepository;
 import com.riskboard.repository.RiskLimitRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,15 +36,18 @@ public class DerogationService {
     private final CounterpartyRepository counterpartyRepository;
     private final RiskLimitRepository riskLimitRepository;
     private final DerogationRequestMapper derogationMapper;
+    private final MeterRegistry meterRegistry;
 
     public DerogationService(DerogationRequestRepository derogationRepository,
                              CounterpartyRepository counterpartyRepository,
                              RiskLimitRepository riskLimitRepository,
-                             DerogationRequestMapper derogationMapper) {
+                             DerogationRequestMapper derogationMapper,
+                             MeterRegistry meterRegistry) {
         this.derogationRepository = derogationRepository;
         this.counterpartyRepository = counterpartyRepository;
         this.riskLimitRepository = riskLimitRepository;
         this.derogationMapper = derogationMapper;
+        this.meterRegistry = meterRegistry;
     }
 
     public List<DerogationRequestDto> findByStatus(DerogationStatus status) {
@@ -96,6 +101,11 @@ public class DerogationService {
         DerogationRequest saved = derogationRepository.save(entity);
         log.info("Derogation created id={} counterparty={} amount={}", saved.getId(),
                 counterparty.getRicosCode(), request.amount());
+        Counter.builder("derogation.submitted")
+                .description("Number of derogation requests submitted")
+                .tag("limit_type", request.limitType().name())
+                .register(meterRegistry)
+                .increment();
         return derogationMapper.toDto(saved);
     }
 
@@ -115,6 +125,11 @@ public class DerogationService {
         entity.setStatus(newStatus);
         DerogationRequest saved = derogationRepository.save(entity);
         log.info("Derogation id={} status updated to {}", id, newStatus);
+        Counter.builder("derogation.decided")
+                .description("Number of derogation requests approved or rejected")
+                .tag("decision", newStatus.name().toLowerCase())
+                .register(meterRegistry)
+                .increment();
         return derogationMapper.toDto(saved);
     }
 }

@@ -1,0 +1,34 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Nom du container sans le slash initial
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: container
+      # stdout ou stderr
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: logstream
+      # Nom du service Compose (backend, frontend, postgres...)
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service
+      # Nom du projet Compose (riskboard, riskboard-int...)
+      - source_labels: [__meta_docker_container_label_com_docker_compose_project]
+        target_label: project
+      # Ne garder que les containers appartenant à un projet Compose
+      - source_labels: [__meta_docker_container_label_com_docker_compose_project]
+        action: keep
+        regex: '.+'

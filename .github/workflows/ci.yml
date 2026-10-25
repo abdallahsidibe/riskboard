@@ -42,6 +42,32 @@ jobs:
           context: ./backend
           push: false
 
+  # ── Observabilité ────────────────────────────────────────────────────────────
+  observability:
+    name: Observability — validate rules & compose
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install promtool
+        run: |
+          PROM_VERSION="3.4.1"
+          curl -sSL "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz" \
+            | tar -xz --strip-components=1 -C /usr/local/bin prometheus-${PROM_VERSION}.linux-amd64/promtool
+
+      - name: Check alert rules syntax
+        run: promtool check rules observability/prometheus/rules/riskboard.rules.yml
+
+      - name: Run alert rules unit tests
+        run: promtool test rules observability/prometheus/tests/riskboard.rules.test.yml
+
+      - name: Validate Compose syntax (prod)
+        run: docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: Validate Compose syntax (observability overlay)
+        run: docker compose -f docker-compose.yml -f docker-compose.observability.yml config --quiet
+
   # ── Frontend ─────────────────────────────────────────────────────────────────
   frontend:
     name: Frontend — build

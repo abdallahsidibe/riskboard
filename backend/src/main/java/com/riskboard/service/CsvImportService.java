@@ -8,6 +8,8 @@ import com.riskboard.enums.LimitType;
 import com.riskboard.mapper.CsvRowMapper;
 import com.riskboard.repository.CounterpartyRepository;
 import com.riskboard.repository.RiskLimitRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -32,13 +34,16 @@ public class CsvImportService {
     private final CounterpartyRepository counterpartyRepository;
     private final RiskLimitRepository riskLimitRepository;
     private final CsvRowMapper csvRowMapper;
+    private final MeterRegistry meterRegistry;
 
     public CsvImportService(CounterpartyRepository counterpartyRepository,
                             RiskLimitRepository riskLimitRepository,
-                            CsvRowMapper csvRowMapper) {
+                            CsvRowMapper csvRowMapper,
+                            MeterRegistry meterRegistry) {
         this.counterpartyRepository = counterpartyRepository;
         this.riskLimitRepository    = riskLimitRepository;
         this.csvRowMapper           = csvRowMapper;
+        this.meterRegistry          = meterRegistry;
     }
 
     @Transactional
@@ -62,9 +67,19 @@ public class CsvImportService {
                     upsert(parseRow(record));
                     successCount++;
                     log.debug("Line {} processed successfully", lineNumber);
+                    Counter.builder("csv.import.rows")
+                            .description("Number of CSV import rows processed")
+                            .tag("outcome", "success")
+                            .register(meterRegistry)
+                            .increment();
                 } catch (Exception e) {
                     log.warn("Line {} skipped: {}", lineNumber, e.getMessage());
                     errors.add(new ImportSummary.ImportError(lineNumber, e.getMessage()));
+                    Counter.builder("csv.import.rows")
+                            .description("Number of CSV import rows processed")
+                            .tag("outcome", "error")
+                            .register(meterRegistry)
+                            .increment();
                 }
             }
 

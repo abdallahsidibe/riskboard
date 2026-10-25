@@ -263,7 +263,7 @@ Ces variables sont définies dans `Settings → Environments` sur GitHub.
 
 #### Health check
 
-Attend jusqu'à **60 secondes** (12 tentatives × 5 s) que le backend réponde :
+Attend jusqu'à **4 minutes** (24 tentatives × 10 s) que le backend réponde :
 ```
 GET http://localhost:<BACKEND_PORT>/actuator/health
 → {"status":"UP"}
@@ -310,6 +310,32 @@ Même comportement que `deploy-int` avec deux différences majeures :
 | `COMPOSE_PROJECT_NAME` | Environment | `deploy.yml` |
 | `BACKEND_PORT` | Environment | `deploy.yml` — health check |
 | `CORS_ALLOWED_ORIGINS` | Environment | `deploy.yml` → injecté dans `.env` → Spring Boot |
+
+---
+
+## Pourquoi `ci.yml` tourne deux fois ?
+
+Quand tu ouvres une PR puis que tu merges sur `develop`, `ci.yml` s'exécute deux fois. C'est intentionnel et c'est la pratique standard en entreprise.
+
+| Exécution | Déclencheur | Rôle |
+|---|---|---|
+| 1ère fois | `pull_request` sur la feature branch | Vérifie le code *avant* le merge — feedback immédiat au développeur, bloque le merge si rouge |
+| 2ème fois | `push` sur `develop` après le merge | Vérifie l'état *après* le merge — deux PRs mergées simultanément peuvent se casser mutuellement même si chacune passait seule |
+
+**La 2ème exécution est aussi celle qui déclenche le build + déploiement.** On ne peut pas déclencher un déploiement sur un état non vérifié.
+
+```
+PR ouverte    → ci.yml (feature branch)  → feedback développeur, gate merge
+PR mergée     → ci.yml (develop)  ┐
+                                   ├─ en parallèle
+              → build.yml (develop)┘  → images GHCR → deploy INT
+```
+
+**Ce que font les équipes en plus pour renforcer ces gates :**
+- **Branch protection** sur `develop` et `main` : merge impossible si `ci.yml` est rouge
+- **Required reviewers** : au moins 1 approbation humaine avant merge
+- **Squash merge** : un seul commit propre sur `develop` par PR (historique lisible)
+- **Environment protection rules** : approbation manuelle obligatoire avant PROD (déjà en place)
 
 ---
 
