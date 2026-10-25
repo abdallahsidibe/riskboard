@@ -1,0 +1,58 @@
+# Overlay observabilité — développement local
+# Usage : docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d --build
+# Stop  : docker compose -f docker-compose.yml -f docker-compose.observability.yml down
+#
+# Note macOS : node-exporter démarre sans montages /proc /sys (inexistants sur Mac).
+# Les métriques CPU/RAM/disque du host ne seront pas disponibles, mais la cible passe UP.
+# Sur VPS (Linux), node-exporter est géré par docker-compose.prod.yml avec les montages complets.
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_local_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=1d'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:11.6.1
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_local_data:/var/lib/grafana
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    # Pas de montages /proc /sys /rootfs — incompatibles avec macOS
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_local_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+
+volumes:
+  prometheus_local_data:
+  grafana_local_data:
+  alertmanager_local_data:

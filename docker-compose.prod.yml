@@ -6,8 +6,9 @@
 #   GITHUB_REPOSITORY_OWNER, IMAGE_TAG
 #   DB_USERNAME, DB_PASSWORD, DB_NAME
 #   CORS_ALLOWED_ORIGINS
-#   FRONTEND_PORT   (4201 for prod, 4202 for int)
-#   BACKEND_PORT    (8081 for prod, 8083 for int)
+#   FRONTEND_PORT        (4201 for prod, 4202 for int)
+#   BACKEND_PORT         (8081 for prod, 8083 for int)
+#   GF_SECURITY_ADMIN_PASSWORD  (Grafana admin password — never commit)
 
 services:
   postgres:
@@ -60,9 +61,114 @@ services:
     networks:
       - internal
 
+  # ── Observabilité ────────────────────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 32m
+          cpus: '0.1'
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+          cpus: '0.1'
+
+  grafana:
+    image: grafana/grafana:11.6.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "http://%(domain)s:${GRAFANA_PORT:-3000}/"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.3'
+
+  nginx-proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:80"
+    volumes:
+      - ./observability/nginx/grafana.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - grafana
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 32m
+          cpus: '0.1'
+
 networks:
   internal:
     driver: bridge
 
 volumes:
   postgres_data:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
